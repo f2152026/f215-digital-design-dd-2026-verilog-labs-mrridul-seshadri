@@ -46,5 +46,6 @@ module tb;
 
   initial
     $monitor($time, " I0=%b I1=%b S=%b | Y=%b", t_i0, t_i1, t_s, t_y);
+    
 
 endmodule
