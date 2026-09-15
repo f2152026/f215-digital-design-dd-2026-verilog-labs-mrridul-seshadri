@@ -31,5 +31,6 @@ module tb;
 
   initial
     $monitor($time, " sel=%b | dout=%b ", sel,dout); // change as required
+    
 
 endmodule
