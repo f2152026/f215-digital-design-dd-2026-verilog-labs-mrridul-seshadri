@@ -210,7 +210,13 @@ class GitManager {
                             fs.writeFileSync(fullPath, content, 'utf8');
                         }
                     }
-                    vscode.window.showInformationMessage(`🎉 Successfully synced ${targetLab.toUpperCase()} templates while preserving your design code!`);
+                    // Auto-install extension and fix permissions
+                    await this.autoInstallExtension(workspaceDir);
+                    vscode.window.showInformationMessage(`🎉 Successfully synced ${targetLab.toUpperCase()} templates while preserving your design code! Please reload window to refresh all tooling.`, 'Reload Window').then(selection => {
+                        if (selection === 'Reload Window') {
+                            vscode.commands.executeCommand('workbench.action.reloadWindow');
+                        }
+                    });
                 }
                 else {
                     // MODE 2: SYNC COURSE TOOLING (EXPLICITLY EXCLUDING LABS)
@@ -228,6 +234,9 @@ class GitManager {
                     progress.report({ message: "Checking out non-lab folders and tooling..." });
                     const checkoutArgs = `checkout upstream/${upstreamBranch} -- ` + topLevelItems.map(item => `"${item}"`).join(' ');
                     await this.runGitCommand(workspaceDir, checkoutArgs);
+                    // Auto-install / re-extract the updated extension and make scripts executable
+                    progress.report({ message: "Reinstalling updated extension and configuring permissions..." });
+                    await this.autoInstallExtension(workspaceDir);
                     // Stage and commit ONLY the non-lab tooling files to keep working tree clean
                     progress.report({ message: "Saving tooling sync to Git history..." });
                     const addArgs = `add ` + topLevelItems.map(item => `"${item}"`).join(' ');
@@ -248,7 +257,11 @@ class GitManager {
                             console.log(`Tooling push notice: ${pushErr.message || pushErr}`);
                         }
                     }
-                    vscode.window.showInformationMessage('🎉 Successfully synced course tooling (scripts, workflows, extension) with zero changes to your labs folder!');
+                    vscode.window.showInformationMessage('🎉 Successfully synced course tooling and updated the helper extension! Please reload the window to apply the updates.', 'Reload Window').then(selection => {
+                        if (selection === 'Reload Window') {
+                            vscode.commands.executeCommand('workbench.action.reloadWindow');
+                        }
+                    });
                 }
             }
             catch (err) {
@@ -256,22 +269,42 @@ class GitManager {
             }
         });
     }
+    static async autoInstallExtension(workspaceDir) {
+        try {
+            await this.runCommand(workspaceDir, 'chmod +x scripts/*.sh');
+        }
+        catch {
+            // Ignore on platforms without chmod
+        }
+        try {
+            const installScript = path.join(workspaceDir, 'scripts', 'install_extension.sh');
+            if (fs.existsSync(installScript)) {
+                await this.runCommand(workspaceDir, 'bash scripts/install_extension.sh');
+            }
+        }
+        catch (err) {
+            console.log(`Extension auto-install notice: ${err.message || err}`);
+        }
+    }
     static async submitLab(labName) {
         const repo = await this.getRepository();
         if (!repo) {
             return;
         }
         const workspaceDir = repo.rootUri.fsPath;
-        const tagName = `submit-${labName}`;
+        const tagName = `submit/${labName}`;
+        const legacyTagName = `submit-${labName}`;
         // 1. Enforce Single Submission: Check if this lab was already submitted locally or on remote
         try {
-            const localTag = await this.runGitCommand(workspaceDir, `tag -l "${tagName}"`);
-            if (localTag.trim() === tagName) {
+            const localTags = await this.runGitCommand(workspaceDir, `tag -l`);
+            const localTagList = localTags.split(/\s+/);
+            if (localTagList.includes(tagName) || localTagList.includes(legacyTagName)) {
                 vscode.window.showErrorMessage(`⛔ ${labName} has already been submitted (Tag: ${tagName}). Only 1 submission is allowed per lab.`, { modal: true });
                 return;
             }
             const remoteTag = await this.runGitCommand(workspaceDir, `ls-remote --tags origin "refs/tags/${tagName}"`);
-            if (remoteTag.trim().length > 0) {
+            const remoteLegacyTag = await this.runGitCommand(workspaceDir, `ls-remote --tags origin "refs/tags/${legacyTagName}"`);
+            if (remoteTag.trim().length > 0 || remoteLegacyTag.trim().length > 0) {
                 vscode.window.showErrorMessage(`⛔ ${labName} was already submitted to GitHub (Tag: ${tagName}). Only 1 submission is allowed per lab.`, { modal: true });
                 return;
             }
@@ -294,7 +327,7 @@ class GitManager {
         else {
             vscode.window.showWarningMessage('No Copilot chat history found under .specstory/. Submitting design files only.');
         }
-        // Submission flow: Staging lab directory, committing, tagging, and pushing
+        // Submission flow: Syncing remote, Staging lab directory, committing, tagging, and pushing
         const labRelativePath = path.join('labs', labName);
         const commitMessage = `Submit ${labName}`;
         await vscode.window.withProgress({
@@ -305,6 +338,15 @@ class GitManager {
             cancellable: false
         }, async (progress) => {
             try {
+                const currentBranch = await this.runGitCommand(workspaceDir, 'rev-parse --abbrev-ref HEAD');
+                // Sync any incoming commits from remote before committing/tagging
+                progress.report({ message: "Syncing branch with GitHub..." });
+                try {
+                    await this.runGitCommand(workspaceDir, `pull --rebase --autostash origin ${currentBranch}`);
+                }
+                catch (pullErr) {
+                    console.log(`Pre-submit pull notice: ${pullErr.message || pullErr}`);
+                }
                 progress.report({ message: `Staging ${labName} files...` });
                 const stagePath = labRelativePath.replace(/\\/g, '/');
                 await this.runGitCommand(workspaceDir, `add "${stagePath}"`);
@@ -324,8 +366,14 @@ class GitManager {
                 progress.report({ message: `Creating submission tag ${tagName}...` });
                 await this.runGitCommand(workspaceDir, `tag -a "${tagName}" -m "Single submission for ${labName}"`);
                 progress.report({ message: "Pushing branch and submission tag to GitHub..." });
-                const currentBranch = await this.runGitCommand(workspaceDir, 'rev-parse --abbrev-ref HEAD');
-                await this.runGitCommand(workspaceDir, `push origin ${currentBranch}`);
+                try {
+                    await this.runGitCommand(workspaceDir, `push origin ${currentBranch}`);
+                }
+                catch (pushBranchErr) {
+                    // If fast-forward rejected, rebase and retry once
+                    await this.runGitCommand(workspaceDir, `pull --rebase origin ${currentBranch}`);
+                    await this.runGitCommand(workspaceDir, `push origin ${currentBranch}`);
+                }
                 await this.runGitCommand(workspaceDir, `push origin refs/tags/${tagName}`);
                 const actionsUrl = await this.getActionsUrl(workspaceDir);
                 vscode.window.showInformationMessage(`🎉 ${labName} submitted successfully (Tag: ${tagName})! Results in ${actionsUrl}`, 'Open Actions').then(selection => {
