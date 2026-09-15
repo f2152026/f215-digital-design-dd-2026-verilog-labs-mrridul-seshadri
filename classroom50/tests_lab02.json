@@ -2,8 +2,8 @@
   {
     "name": "Task 1 - 2-to-1 MUX Simulation",
     "type": "io",
-    "setup": "./scripts/compile.sh lab02 task1 labs/lab02/task1/tb.v",
-    "run": "./scripts/run.sh lab02 task1 labs/lab02/task1/tb.v",
+    "setup": "./scripts/compile.sh lab02 task01 labs/lab02/task01/tb.v",
+    "run": "./scripts/run.sh lab02 task01 labs/lab02/task01/tb.v",
     "expected": "Simulation complete:",
     "comparison": "included",
     "points": 20
@@ -11,8 +11,8 @@
   {
     "name": "Task 2 - Parameterized ROM Lookup Table (lut)",
     "type": "io",
-    "setup": "./scripts/compile.sh lab02 task2 labs/lab02/task2/tb.v",
-    "run": "./scripts/run.sh lab02 task2 labs/lab02/task2/tb.v",
+    "setup": "./scripts/compile.sh lab02 task02 labs/lab02/task02/tb.v",
+    "run": "./scripts/run.sh lab02 task02 labs/lab02/task02/tb.v",
     "expected": "Simulation complete:",
     "comparison": "included",
     "points": 20
@@ -20,8 +20,8 @@
   {
     "name": "Task 3 - 2-bit Magnitude Comparator (comp2)",
     "type": "io",
-    "setup": "./scripts/compile.sh lab02 task3 labs/lab02/task3/tb.v",
-    "run": "./scripts/run.sh lab02 task3 labs/lab02/task3/tb.v",
+    "setup": "./scripts/compile.sh lab02 task03 labs/lab02/task03/tb.v",
+    "run": "./scripts/run.sh lab02 task03 labs/lab02/task03/tb.v",
     "expected": "Simulation complete:",
     "comparison": "included",
     "points": 20
@@ -29,8 +29,8 @@
   {
     "name": "Task 4 - Delay Placement Semantics",
     "type": "io",
-    "setup": "./scripts/compile.sh lab02 task4 labs/lab02/task4/tb.v",
-    "run": "./scripts/run.sh lab02 task4 labs/lab02/task4/tb.v",
+    "setup": "./scripts/compile.sh lab02 task04 labs/lab02/task04/tb.v",
+    "run": "./scripts/run.sh lab02 task04 labs/lab02/task04/tb.v",
     "expected": "Simulation complete:",
     "comparison": "included",
     "points": 20
@@ -38,8 +38,8 @@
   {
     "name": "Task 5 - Capstone ALU (alu)",
     "type": "io",
-    "setup": "./scripts/compile.sh lab02 task5 labs/lab02/task5/tb.v",
-    "run": "./scripts/run.sh lab02 task5 labs/lab02/task5/tb.v",
+    "setup": "./scripts/compile.sh lab02 task05 labs/lab02/task05/tb.v",
+    "run": "./scripts/run.sh lab02 task05 labs/lab02/task05/tb.v",
     "expected": "Simulation complete:",
     "comparison": "included",
     "points": 20
