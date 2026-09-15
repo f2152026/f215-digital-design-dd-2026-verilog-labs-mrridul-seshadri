@@ -262,7 +262,7 @@ class GitManager {
             return;
         }
         const workspaceDir = repo.rootUri.fsPath;
-        const tagName = `submit-${labName}`;
+        const tagName = `submit/${labName}`;
         // 1. Enforce Single Submission: Check if this lab was already submitted locally or on remote
         try {
             const localTag = await this.runGitCommand(workspaceDir, `tag -l "${tagName}"`);
